@@ -12,9 +12,6 @@ class MyManager
 
         MyManager(MyManager&) = delete;
         void operator=(MyManager&) = delete;
-
-        //MyManager(MyManager&&) = delete;
-        //void operator=(MyManager&&) = delete;
 };
 
 int main(int argc, char** argv)
