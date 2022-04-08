@@ -1,1 +1,1 @@
-g++ -std=c++14 -g -Wall -o sorts main.cpp
+g++ -std=c++14 -g -o sorts main.cpp
