@@ -43,16 +43,45 @@ void Quicksort(int *arr, int lo, int hi)
     Quicksort(arr, p + 1, hi);
 }
 // Quicksort END
-void Mergesort(int *arr, int lo, int hi, int *sorted)
+void Merge(int *arr, int lo, int mid, int hi)
+{
+    int lLen = mid - lo + 1, rLen = hi - mid;
+
+    int left[lLen];
+    for (int i = 0; i < lLen; i++)
+        left[i] = arr[lo + i];
+
+    int right[rLen];
+    for (int j = 0; j < rLen; j++)
+        right[j] = arr[mid + 1 + j];
+
+    int i = 0, j = 0, k = lo;
+
+    while(i < lLen && j < rLen)
+    {
+        if (left[i] <= right[j])
+            arr[k++] = left[i++];
+        else
+            arr[k++] = right[j++];
+    }
+
+    while(i < lLen)
+        arr[k++] = left[i++];
+
+    while(j < rLen)
+        arr[k++] = right[j++];
+}
+
+void Mergesort(int *arr, int lo, int hi)
 {
     if (lo >= hi)
         return;
 
     int mid = (lo + hi) / 2;
-    printf("[MERGE] middle index found = %i\n", mid);
 
-    Mergesort(arr, lo, mid, sorted);
-    Mergesort(arr, mid + 1, hi, sorted);
+    Mergesort(arr, lo, mid);
+    Mergesort(arr, mid + 1, hi);
+    Merge(arr, lo, mid, hi);
 }
 // Merge sort START
 
@@ -66,7 +95,6 @@ int main(int argc, char **argv)
     }
 
     std::vector<int> nums { 65, 23, 10, 89, 99, 72, 52, 12, 45, 0, 16, 79, 81 };
-    std::vector<int> sorted(nums.size());
 
     printf("[MAIN] Welcome to sorting\n");
     printf("[MAIN] Sorting the following list\n");
@@ -75,20 +103,22 @@ int main(int argc, char **argv)
     if (strcmp(argv[1], "Quick") == 0)
     {
         Quicksort(nums.data(), 0, nums.size() - 1);
+        printf("[MAIN] ... DONE ...\n");
+        printf("[MAIN] Here is the sorted list\n");
+        Debug(nums);
     }
     else if (strcmp(argv[1], "Merge") == 0)
     {
-        Mergesort(nums.data(), 0, nums.size() - 1, sorted.data());
+        Mergesort(nums.data(), 0, nums.size() - 1);
+        printf("[MAIN] ... DONE ...\n");
+        printf("[MAIN] Here is the sorted list\n");
+        Debug(nums);
     }
     else
     {
         printf("[MAIN] Sorting algo not supported\n");
         return 0;
     }
-
-    printf("[MAIN] ... DONE ...\n");
-    printf("[MAIN] Here is the sorted list\n");
-    Debug(nums);
 
     return 0;
 }
