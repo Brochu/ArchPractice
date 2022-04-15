@@ -16,25 +16,25 @@ void BuildSegmentTree(int *arr, int n)
 {
     for (int i = n - 1; i > 0; i--)
     {
-        arr[i] = std::max(arr[2*i], arr[2*i+1]);
+        arr[i] = arr[2*i] + arr[2*i+1];
     }
 }
 
 int QuerySegmentTree(int *arr, int n, int l, int r)
 {
-    int res = INT_MIN;
+    int res = 0;
 
     for (l += n, r += n; l < r; l >>= 1, r >>= 1)
     {
-        if (l&1) res = std::max(res, arr[l++]);
-        if (r&1) res = std::max(res, arr[--r]);
+        if (l&1) res += arr[l++];
+        if (r&1) res += arr[--r];
     }
     return res;
 }
 
 int main(int argc, char **argv)
 {
-    int values[] = { 58, 62, 15, 92, 17, 80, 95 };
+    int values[] = { 58, 62, 15, 92, 17, 80, 95, 0 };
     int n = sizeof(values) / sizeof(values[0]);
 
     int sTree[2 * n];
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     printf("[MAIN] Segment tree done building:\n");
     Print(sTree, m);
 
-    int l = 3, r = 7;
+    int l = 2, r = 6;
     printf("[MAIN] Query from %i to %i : %i\n", l, r, QuerySegmentTree(sTree, n, l, r));
 
     return 0;
