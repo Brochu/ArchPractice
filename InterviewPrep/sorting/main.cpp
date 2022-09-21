@@ -4,32 +4,28 @@
 int HoarePartition(char *arr, int lo, int hi)
 {
     const char pivot = arr[(lo + hi) / 2];
-
     int i = lo, j = hi;
 
-    while(true)
+    while (true)
     {
-        while(arr[i] < pivot) i++;
-        while(arr[j] > pivot) j--;
+        if (arr[i] < pivot) i++;
+        if (arr[j] > pivot) j--;
 
-        if (i >= j)
+        else if (i >= j)
             return j;
 
         std::swap(arr[i], arr[j]);
     }
-
-    return -1;
 }
 
 void Quicksort(char *arr, int lo, int hi)
 {
-    if (lo >= hi)
-        return;
+    if (lo >= hi) return;
 
-    const int p = HoarePartition(arr, lo, hi);
+    int part = HoarePartition(arr, lo, hi);
 
-    Quicksort(arr, lo, p);
-    Quicksort(arr, p + 1, hi);
+    Quicksort(arr, lo, part);
+    Quicksort(arr, part + 1, hi);
 }
 
 int main(int argc, char **argv)
