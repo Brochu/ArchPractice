@@ -150,7 +150,9 @@ void CreateTopLevelAS(const std::vector<std::pair<comptr<id3d12resource>, Direct
 void CreateAccelerationStructures()
 {
     // Build the bottom AS from the Triangle vertex buffer
-    AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({{m_vertexBuffer.Get(), 3}});
+    AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({
+            {m_vertexBuffer.Get(), 3}
+        });
 
     // Just one instance for now
     m_instances = {
@@ -165,6 +167,7 @@ void CreateAccelerationStructures()
     m_commandList->Close();
     ID3D12CommandList *ppCommandLists[] = {m_commandList.Get()};
     m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
+
     m_fenceValue++;
     m_commandQueue->Signal(m_fence.Get(), m_fenceValue);
     m_fence->SetEventOnCompletion(m_fenceValue, m_fenceEvent);
