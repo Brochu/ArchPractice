@@ -199,3 +199,50 @@ void OnInit()
     // close it now.
     ThrowIfFailed(m_commandList->Close());
 }
+
+ComPtr<idxcblob> m_rayGenLib;
+ComPtr<idxcblob> m_hitLib;
+ComPtr<idxcblob> m_missLib;
+
+ComPtr<id3d12rootsignature> m_rayGenSignature;
+ComPtr<id3d12rootsignature> m_hitSignature;
+ComPtr<id3d12rootsignature> m_missSignature;
+
+ComPtr<id3d12stateobject> m_rtStateObject;
+ComPtr<id3d12stateobjectproperties> m_rtStateObjectProps;
+
+//-----------------------------------------------------------------------------
+// The ray generation shader needs to access 2 resources: the raytracing output
+// and the top-level acceleration structure
+ComPtr<id3d12rootsignature> CreateRayGenSignature()
+{
+    nv_helpers_dx12::RootSignatureGenerator rsc;
+    rsc.AddHeapRangesParameter({
+            {0 /*u0*/, 1 /*1 descriptor */, 0 /*use the implicit register space 0*/, D3D12_DESCRIPTOR_RANGE_TYPE_UAV /* UAV representing the output buffer*/, 0 /*heap slot where the UAV is defined*/},
+            {0 /*t0*/, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV /*Top-level acceleration structure*/, 1}
+        });
+
+    return rsc.Generate(m_device.Get(), true);
+}
+
+//-----------------------------------------------------------------------------
+// The hit shader communicates only through the ray payload, and therefore does
+// not require any resources
+ComPtr<id3d12rootsignature> CreateHitSignature()
+{
+    nv_helpers_dx12::RootSignatureGenerator rsc;
+    return rsc.Generate(m_device.Get(), true);
+}
+
+//-----------------------------------------------------------------------------
+// The miss shader communicates only through the ray payload, and therefore
+// does not require any resources
+ComPtr<id3d12rootsignature> CreateMissSignature()
+{
+    nv_helpers_dx12::RootSignatureGenerator rsc;
+    return rsc.Generate(m_device.Get(), true);
+}
+
+void CreateRayTracingPipeline()
+{
+}
