@@ -181,3 +181,21 @@ void CreateAccelerationStructures()
     // the function
     m_bottomLevelAS = bottomLevelBuffers.pResult;
 }
+
+void OnInit()
+{
+    LoadPipeline();
+    LoadAssets();
+
+    // Check the raytracing capabilities of the device
+    CheckRaytracingSupport();
+
+    // Setup the acceleration structures (AS) for raytracing. When setting up
+    // geometry, each bottom-level AS has its own transform matrix.
+    CreateAccelerationStructures();
+
+    // Command lists are created in the recording state, but there is
+    // nothing to record yet. The main loop expects it to be closed, so
+    // close it now.
+    ThrowIfFailed(m_commandList->Close());
+}
