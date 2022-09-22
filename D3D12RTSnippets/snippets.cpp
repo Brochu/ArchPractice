@@ -243,6 +243,47 @@ ComPtr<id3d12rootsignature> CreateMissSignature()
     return rsc.Generate(m_device.Get(), true);
 }
 
-void CreateRayTracingPipeline()
+//-----------------------------------------------------------------------------
+// The raytracing pipeline binds the shader code, root signatures and pipeline
+// characteristics in a single structure used by DXR to invoke the shaders and
+// manage temporary memory during raytracing
+void CreateRaytracingPipeline()
 {
+    nv_helpers_dx12::RayTracingPipelineGenerator pipeline(m_device.Get());
+
+    // The pipeline contains the DXIL code of all the shaders potentially executed
+    // during the raytracing process. This section compiles the HLSL code into a
+    // set of DXIL libraries. We chose to separate the code in several libraries by
+    // semantic (ray generation, hit, miss) for clarity. Any code layout can be
+    // used.
+    m_rayGenLibrary = nv_helpers_dx12::CompileShaderLibrary(L"RayGen.hlsl");
+    m_missLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Miss.hlsl");
+    m_hitLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Hit.hlsl");
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //As described at the beginning of this section, to each shader corresponds a root signature defining
+    //its external inputs.
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // To be used, each DX12 shader needs a root signature defining which
+    // parameters and buffers will be accessed.
+    m_rayGenSignature = CreateRayGenSignature();
+    m_missSignature = CreateMissSignature();
+    m_hitSignature = CreateHitSignature();
+
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // To be used, each shader needs to be associated to its root signature. Each shaders imported from
+    // the DXIL libraries needs to be associated with exactly one root signature.
+    // The shaders comprising the hit groups need to share the same root signature, which is associated
+    // to the hit group (and not to the shaders themselves). Note that a shader does not have to actually
+    // access all the resources declared in its root signature, as long as the root signature defines a
+    // superset of the resources the shader needs.
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // The following section associates the root signature to each shader.
+    // Note that we can explicitly show that some shaders share the same root signature
+    // (eg. Miss and ShadowMiss). Note that the hit shaders are now only referred
+    // to as hit groups, meaning that the underlying intersection, any-hit and
+    // closest-hit shaders share the same root signature.
+    pipeline.AddRootSignatureAssociation(m_rayGenSignature.Get(), {L"RayGen"});
+    pipeline.AddRootSignatureAssociation(m_missSignature.Get(), {L"Miss"});
+    pipeline.AddRootSignatureAssociation(m_hitSignature.Get(), {L"HitGroup"});
 }
