@@ -198,6 +198,19 @@ void OnInit()
     // nothing to record yet. The main loop expects it to be closed, so
     // close it now.
     ThrowIfFailed(m_commandList->Close());
+
+    // Create the raytracing pipeline, associating the shader code to symbol names
+    // and to their root signatures, and defining the amount of memory carried by
+    // rays (ray payload)
+    CreateRaytracingPipeline();
+
+    // Allocate the buffer storing the raytracing output, with the same dimensions
+    // as the target image
+    CreateRaytracingOutputBuffer();
+    // Create the buffer containing the raytracing result (always output in a
+    // UAV), and create the heap referencing the resources used by the raytracing,
+    // such as the acceleration structure
+    CreateShaderResourceHeap();
 }
 
 ComPtr<idxcblob> m_rayGenLib;
@@ -286,4 +299,68 @@ void CreateRaytracingPipeline()
     pipeline.AddRootSignatureAssociation(m_rayGenSignature.Get(), {L"RayGen"});
     pipeline.AddRootSignatureAssociation(m_missSignature.Get(), {L"Miss"});
     pipeline.AddRootSignatureAssociation(m_hitSignature.Get(), {L"HitGroup"});
+}
+
+ComPtr<id3d12resource> m_outputResource;
+ComPtr<id3d12descriptorheap> m_srvUavHeap;
+
+//-----------------------------------------------------------------------------
+// Allocate the buffer holding the raytracing output, with the same size as the
+// output image
+void CreateRaytracingOutputBuffer()
+{
+    D3D12_RESOURCE_DESC resDesc = {};
+    resDesc.DepthOrArraySize = 1;
+    resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+    // The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
+    // formats cannot be used with UAVs. For accuracy we should convert to sRGB
+    // ourselves in the shader
+    resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+    resDesc.Width = GetWidth();
+    resDesc.Height = GetHeight();
+    resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    resDesc.MipLevels = 1;
+    resDesc.SampleDesc.Count = 1;
+    ThrowIfFailed(m_device->CreateCommittedResource(
+                &nv_helpers_dx12::kDefaultHeapProps,
+                D3D12_HEAP_FLAG_NONE,
+                &resDesc,
+                D3D12_RESOURCE_STATE_COPY_SOURCE,
+                nullptr,
+                IID_PPV_ARGS(&m_outputResource)
+            ));
+}
+
+//-----------------------------------------------------------------------------
+// Create the main heap used by the shaders, which will give access to the
+// raytracing output and the top-level acceleration structure
+void CreateShaderResourceHeap()
+{
+    // Create a SRV/UAV/CBV descriptor heap. We need 2 entries - 1 UAV for the
+    // raytracing output and 1 SRV for the TLAS
+    m_srvUavHeap = nv_helpers_dx12::CreateDescriptorHeap( m_device.Get(), 2, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+
+    // Get a handle to the heap memory on the CPU side, to be able to write the
+    // descriptors directly
+    D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
+
+    // Create the UAV. Based on the root signature we created it is the first
+    // entry. The Create*View methods write the view information directly into
+    // srvHandle
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    m_device->CreateUnorderedAccessView(m_outputResource.Get(), nullptr, &uavDesc, srvHandle);
+
+    // Add the Top Level AS SRV right after the raytracing output buffer
+    srvHandle.ptr += m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+    srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.RaytracingAccelerationStructure.Location = m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+
+    // Write the acceleration structure view in the heap
+    m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
 }
