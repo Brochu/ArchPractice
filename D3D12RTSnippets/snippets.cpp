@@ -211,6 +211,10 @@ void OnInit()
     // UAV), and create the heap referencing the resources used by the raytracing,
     // such as the acceleration structure
     CreateShaderResourceHeap();
+
+    // Create the shader binding table and indicating which shaders
+    // are invoked for each instance in the AS
+    CreateShaderBindingTable();
 }
 
 ComPtr<idxcblob> m_rayGenLib;
@@ -363,4 +367,69 @@ void CreateShaderResourceHeap()
 
     // Write the acceleration structure view in the heap
     m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
+}
+
+nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
+ComPtr<id3d12resource> m_sbtStorage;
+
+//-----------------------------------------------------------------------------
+// The Shader Binding Table (SBT) is the cornerstone of the raytracing setup:
+// this is where the shader resources are bound to the shaders, in a way that
+// can be interpreted by the raytracer on GPU. In terms of layout, the SBT
+// contains a series of shader IDs with their resource pointers. The SBT
+// contains the ray generation shader, the miss shaders, then the hit groups.
+// Using the helper class, those can be specified in arbitrary order.
+void CreateShaderBindingTable()
+{
+    // The SBT helper class collects calls to Add*Program. If called several
+    // times, the helper must be emptied before re-adding shaders.
+    m_sbtHelper.Reset();
+
+    // The pointer to the beginning of the heap is the only parameter required by
+    // shaders without root parameters
+    D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
+
+    // ??
+    pointer heapPointer = (srvUavHeapHandle.ptr);
+
+    // >~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // We can now add the various programs used in our example: according to its root signature, the ray generation shader needs to access
+    // the raytracing output buffer and the top-level acceleration structure referenced in the heap. Therefore, it
+    // takes a single resource pointer towards the beginning of the heap data. The miss shader and the hit group
+    // only communicate through the ray payload, and do not require any resource, hence an empty resource array.
+    // Note that the helper will group the shaders by types in the SBT, so it is possible to declare them in an
+    // arbitrary order. For example, miss programs can be added before or after ray generation programs without
+    // affecting the result.
+    // However, within a given type (say, the hit groups), the order in which they are added
+    // is important. It needs to correspond to the `InstanceContributionToHitGroupIndex` value used when adding
+    // instances to the top-level acceleration structure: for example, an instance having `InstanceContributionToHitGroupIndex==0`
+    // needs to have its hit group added first in the SBT.
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // The ray generation only uses heap data
+    m_sbtHelper.AddRayGenerationProgram(L"RayGen", {heapPointer});
+
+    // The miss and hit shaders do not access any external resources: instead they
+    // communicate their results through the ray payload
+    m_sbtHelper.AddMissProgram(L"Miss", {});
+
+    // Adding the triangle hit shader
+    m_sbtHelper.AddHitGroup(L"HitGroup", {});
+}
+
+void PopulateCommandList()
+{
+    // Bind the descriptor heap giving access to the top-level acceleration
+    // structure, as well as the raytracing output
+    std::vector<id3d12descriptorheap*> heaps = {m_srvUavHeap.Get()};
+    m_commandList->SetDescriptorHeaps(static_cast<uint>(heaps.size()), heaps.data());
+
+    // On the last frame, the raytracing output was used as a copy source, to
+    // copy its contents into the render target. Now we need to transition it to
+    // a UAV so that the shaders can write in it.
+    CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
+        m_outputResource.Get(),
+        D3D12_RESOURCE_STATE_COPY_SOURCE,
+        D3D12_RESOURCE_STATE_UNORDERED_ACCESS
+    );
+    m_commandList->ResourceBarrier(1, &transition);
 }
