@@ -66,5 +66,7 @@ void RayGen()
         // shaders and the raygen
         payload
     );
+
+    // Use the ray's output to fill in the ray tracing output texture (accessed as UAV)
     gOutput[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
 }
