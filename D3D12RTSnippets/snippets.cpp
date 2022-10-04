@@ -160,6 +160,14 @@ void CreateAccelerationStructures()
             bottomLevelBuffers.pResult,
             XMMatrixIdentity()
         }
+        {
+            bottomLevelBuffers.pResult,
+            XMMatrixTranslation(-.6f, 0, 0)
+        }
+        {
+            bottomLevelBuffers.pResult,
+            XMMatrixTranslation(.6f, 0, 0)
+        }
     };
     CreateTopLevelAS(m_instances);
 
