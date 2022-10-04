@@ -21,6 +21,51 @@ AccelerationStructureBuffers m_topLevelASBuffers;
 std::vector<std::pair<comptr<id3d12resource>, DirectX::XMMATRIX>> m_instances; // map BLAS to transform
 
 //-----------------------------------------------------------------------------
+// Create a vertex buffer for the plane
+void D3D12HelloTriangle::CreatePlaneVB()
+{
+    // Define the geometry for a plane.
+    Vertex planeVertices[] = {
+        {{-1.5f, -.8f, 01.5f}, {1.0f, 1.0f, 1.0f, 1.0f}}, // 0
+        {{-1.5f, -.8f, -1.5f}, {1.0f, 1.0f, 1.0f, 1.0f}}, // 1
+        {{01.5f, -.8f, 01.5f}, {1.0f, 1.0f, 1.0f, 1.0f}}, // 2
+        {{01.5f, -.8f, 01.5f}, {1.0f, 1.0f, 1.0f, 1.0f}}, // 2
+        {{-1.5f, -.8f, -1.5f}, {1.0f, 1.0f, 1.0f, 1.0f}}, // 1
+        {{01.5f, -.8f, -1.5f}, {1.0f, 1.0f, 1.0f, 1.0f}}, // 4
+    };
+    const UINT planeBufferSize = sizeof(planeVertices);
+
+    // Note: using upload heaps to transfer static data like vert buffers is not
+    // recommended. Every time the GPU needs it, the upload heap will be
+    // marshalled over. Please read up on Default Heap usage. An upload heap is
+    // used here for code simplicity and because there are very few verts to
+    // actually transfer.
+    CD3DX12_HEAP_PROPERTIES heapProperty = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    CD3DX12_RESOURCE_DESC bufferResource = CD3DX12_RESOURCE_DESC::Buffer(planeBufferSize);
+    ThrowIfFailed(m_device->CreateCommittedResource(
+        &heapProperty,
+        D3D12_HEAP_FLAG_NONE,
+        &bufferResource,
+        nullptr,
+        IID_PPV_ARGS(&m_planeBuffer)
+    ));
+
+    // Copy the triangle data to the vertex buffer.
+    UINT8 *pVertexDataBegin;
+    CD3DX12_RANGE readRange( 0, 0);
+
+    // We do not intend to read from this resource on the CPU.
+    ThrowIfFailed(m_planeBuffer->Map( 0, &readRange, reinterpret_cast<void **="">(&pVertexDataBegin)));
+    memcpy(pVertexDataBegin, planeVertices, sizeof(planeVertices));
+    m_planeBuffer->Unmap(0, nullptr);
+
+    // Initialize the vertex buffer view.
+    m_planeBufferView.BufferLocation = m_planeBuffer->GetGPUVirtualAddress();
+    m_planeBufferView.StrideInBytes = sizeof(Vertex);
+    m_planeBufferView.SizeInBytes = planeBufferSize;
+}
+
+//-----------------------------------------------------------------------------
 //
 // Create a bottom-level acceleration structure based on a list of vertex
 // buffers in GPU memory along with their vertex count. The build is then done
@@ -154,6 +199,11 @@ void CreateAccelerationStructures()
             {m_vertexBuffer.Get(), 3}
         });
 
+    // Build the bottom AS from the Plane vertex buffer
+    AccelerationStructureBuffers bottomLevelPlaneBuffers = CreateBottomLevelAS({
+            {m_planeBuffer.Get(), 6}
+        });
+
     // Just one instance for now
     m_instances = {
         {
@@ -167,6 +217,10 @@ void CreateAccelerationStructures()
         {
             bottomLevelBuffers.pResult,
             XMMatrixTranslation(.6f, 0, 0)
+        }
+        {
+            bottomLevelPlaneBuffers.pResult,
+            XMMatrixTranslation(0, 0, 0)
         }
     };
     CreateTopLevelAS(m_instances);
